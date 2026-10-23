@@ -5,4 +5,6 @@ services:
     build: .
     ports:
       - "3000:80"
+    volumes:
+      - /mnt/storage:/mnt/storage:ro # Bind-mount HDD sekunder ke dalam container
     restart: always
