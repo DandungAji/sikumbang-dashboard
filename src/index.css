@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-neo-bg text-neo-dark antialiased;
+  }
+}
+
+@layer components {
+  .neo-card {
+    @apply bg-white border-2 border-neo-dark rounded-neo shadow-neo-md transition-all duration-200;
+  }
+  .neo-card-hover {
+    @apply hover:-translate-y-1 hover:shadow-neo-hover active:translate-y-0 active:shadow-neo-active;
+  }
+}
