@@ -31,29 +31,37 @@ export default function App() {
         return res.json();
       })
       .then((data) => {
-        const formatted = data.map((item, index) => {
-          // Ambil nama kontainer bersih (hapus slash depan)
-          const name = item.Names[0] ? item.Names[0].replace('/', '') : 'unnamed-container';
-          
-          // Cari pemetaan port publik jika ada
-          const publicPort = item.Ports?.find((p) => p.PublicPort)?.PublicPort;
-          const url = publicPort 
-            ? `http://${window.location.hostname}:${publicPort}` 
-            : null;
+  const formatted = data
+    // 1. FILTER: Cuma ambil kontainer yang punya PublicPort & running
+    .filter((item) => {
+      const hasPublicPort = item.Ports && item.Ports.some((p) => p.PublicPort);
+      return hasPublicPort;
+    })
+    // 2. MAP: Format data kartu
+    .map((item, index) => {
+      const name = item.Names[0] ? item.Names[0].replace('/', '') : 'unnamed';
+      
+      // Ambil port publik pertama
+      const portInfo = item.Ports.find((p) => p.PublicPort);
+      const publicPort = portInfo ? portInfo.PublicPort : null;
+      
+      // Tentukan URL web service
+      const url = publicPort ? `http://${window.location.hostname}:${publicPort}` : null;
 
-          return {
-            id: item.Id,
-            name: name,
-            status: item.State, // 'running', 'exited', dll.
-            image: item.Image,
-            url: url,
-            bgColor: CARD_BG_COLORS[index % CARD_BG_COLORS.length]
-          };
-        });
+      return {
+        id: item.Id,
+        name: name,
+        status: item.State,
+        image: item.Image,
+        port: publicPort,
+        url: url,
+        bgColor: CARD_BG_COLORS[index % CARD_BG_COLORS.length]
+      };
+    });
 
-        setContainers(formatted);
-        setLoading(false);
-      })
+  setContainers(formatted);
+  setLoading(false);
+})
       .catch((err) => {
         console.error('Gagal mengambil data kontainer:', err);
         setLoading(false);
