@@ -72,7 +72,8 @@ export default function App() {
               rawName.includes('postgres') || 
               rawName.includes('redis') || 
               rawName.includes('machine_learning') ||
-              rawName.includes('sentinel');
+              rawName.includes('sentinel') ||
+              rawName.includes('sikumbang-dashboard');
             return !isInternal;
           })
           // 2. MAP: Cocokkan nama & URL berdasarkan SERVICE_CONFIG
