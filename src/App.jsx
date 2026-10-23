@@ -6,7 +6,10 @@ import {
   ExternalLink, 
   CheckCircle2, 
   XCircle,
-  RefreshCw
+  RefreshCw,
+  Cpu,
+  HardDrive,
+  Ram
 } from 'lucide-react';
 
 const CARD_BG_COLORS = [
@@ -18,13 +21,8 @@ const CARD_BG_COLORS = [
   'bg-[#fb923c]', // Soft Orange
 ];
 
-// Mapping URL dan nama bersih sesuai dokumentasi Homelab
+// Mapping URL dan deskripsi service Homelab
 const SERVICE_CONFIG = {
-  'sikumbang-dashboard': {
-    name: 'Sikumbang Dashboard',
-    url: 'https://sikumbang.web.id',
-    description: 'Custom Soft-Brutalism Landing Page'
-  },
   'immich_server': {
     name: 'Immich',
     url: 'https://immich.sikumbang.web.id',
@@ -56,6 +54,16 @@ export default function App() {
   const [containers, setContainers] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // State telemetry hardware realtime dari Python/psutil
+  const [sysStats, setSysStats] = useState({
+    cpuUsage: 0,
+    ramUsedGb: 0,
+    ramTotalGb: 8.0,
+    diskUsedGb: 0,
+    diskTotalGb: 500
+  });
+
+  // 1. Fetch data kontainer dari Portainer API
   const fetchContainers = () => {
     setLoading(true);
     fetch('/api/portainer/')
@@ -65,7 +73,7 @@ export default function App() {
       })
       .then((data) => {
         const formatted = data
-          // 1. FILTER: Blacklist kontainer pendukung/database internal
+          // Filter: buang kontainer internal, DB, dan dashboard ini sendiri
           .filter((item) => {
             const rawName = item.Names[0] ? item.Names[0].replace('/', '') : '';
             const isInternal = 
@@ -74,13 +82,11 @@ export default function App() {
               rawName.includes('machine_learning') ||
               rawName.includes('sentinel') ||
               rawName.includes('sikumbang-dashboard');
+
             return !isInternal;
           })
-          // 2. MAP: Cocokkan nama & URL berdasarkan SERVICE_CONFIG
           .map((item, index) => {
             const rawName = item.Names[0] ? item.Names[0].replace('/', '') : 'unnamed';
-            
-            // Cari konfigurasi kustom, jika tidak ada buatkan fallback rapi
             const matchedConfig = SERVICE_CONFIG[rawName] || {
               name: rawName.toUpperCase(),
               url: null,
@@ -107,15 +113,43 @@ export default function App() {
       });
   };
 
+  // 2. Fetch sensor hardware asli realtime dari endpoint Python
+  const fetchSystemStats = () => {
+    fetch('/api/system-stats')
+      .then((res) => res.json())
+      .then((data) => {
+        setSysStats({
+          cpuUsage: data.cpuUsage,
+          ramUsedGb: data.ramUsedGb,
+          ramTotalGb: data.ramTotalGb,
+          diskUsedGb: data.diskUsedGb,
+          diskTotalGb: data.diskTotalGb
+        });
+      })
+      .catch((err) => console.error('Gagal fetch real stats:', err));
+  };
+
+  // 3. Lifecycle hook untuk auto-refresh data
   useEffect(() => {
     fetchContainers();
+    fetchSystemStats();
+
+    // Polling sensor hardware tiap 3 detik
+    const interval = setInterval(() => {
+      fetchSystemStats();
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, []);
+
+  const ramPercent = Math.round((sysStats.ramUsedGb / sysStats.ramTotalGb) * 100) || 0;
+  const diskPercent = Math.round((sysStats.diskUsedGb / sysStats.diskTotalGb) * 100) || 0;
 
   return (
     <div className="min-h-screen bg-[#f4f4f0] text-black font-sans p-6 md:p-12">
       <div className="max-w-6xl mx-auto">
         {/* Header Section */}
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10 pb-6 border-b-4 border-black">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b-4 border-black">
           <div>
             <div className="flex items-center gap-3">
               <div className="p-3 bg-black text-white rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)]">
@@ -123,31 +157,86 @@ export default function App() {
               </div>
               <div>
                 <h1 className="text-3xl font-black tracking-tight uppercase">HOME LAB</h1>
-                <p className="text-sm font-semibold text-gray-700">Server Dashboard & Service Discovery</p>
+                <p className="text-sm font-semibold text-gray-700">Server Dashboard & Realtime Monitoring</p>
               </div>
             </div>
           </div>
 
           <button
-            onClick={fetchContainers}
+            onClick={() => {
+              fetchContainers();
+              fetchSystemStats();
+            }}
             disabled={loading}
             className="flex items-center gap-2 self-start sm:self-auto px-4 py-2 bg-[#fde047] hover:bg-[#facc15] border-2 border-black rounded-xl font-bold text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            Refresh Services
+            Refresh
           </button>
         </header>
 
-        {/* Content Section */}
-        {loading ? (
+        {/* Realtime Resource Usage Widgets */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {/* CPU Widget */}
+          <div className="bg-white border-3 border-black p-4 rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="flex items-center gap-2 font-black text-sm uppercase">
+                <Cpu size={18} /> CPU Load
+              </span>
+              <span className="font-extrabold text-xs px-2 py-0.5 bg-sky-200 border border-black rounded-md">
+                {sysStats.cpuUsage}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 h-4 rounded-lg border-2 border-black overflow-hidden">
+              <div 
+                className="bg-[#7dd3fc] h-full transition-all duration-500" 
+                style={{ width: `${sysStats.cpuUsage}%` }}
+              />
+            </div>
+          </div>
+
+          {/* RAM Widget */}
+          <div className="bg-white border-3 border-black p-4 rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="flex items-center gap-2 font-black text-sm uppercase">
+                <Ram size={18} /> RAM
+              </span>
+              <span className="font-extrabold text-xs px-2 py-0.5 bg-lime-200 border border-black rounded-md">
+                {sysStats.ramUsedGb} / {sysStats.ramTotalGb} GB
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 h-4 rounded-lg border-2 border-black overflow-hidden">
+              <div 
+                className="bg-[#bef264] h-full transition-all duration-500" 
+                style={{ width: `${ramPercent}%` }}
+              />
+            </div>
+          </div>
+
+          {/* DISK Widget */}
+          <div className="bg-white border-3 border-black p-4 rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="flex items-center gap-2 font-black text-sm uppercase">
+                <HardDrive size={18} /> Storage
+              </span>
+              <span className="font-extrabold text-xs px-2 py-0.5 bg-pink-200 border border-black rounded-md">
+                {sysStats.diskUsedGb} / {sysStats.diskTotalGb} GB
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 h-4 rounded-lg border-2 border-black overflow-hidden">
+              <div 
+                className="bg-[#f472b6] h-full transition-all duration-500" 
+                style={{ width: `${diskPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Container Cards Section */}
+        {loading && containers.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 border-4 border-black rounded-2xl bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
             <Activity size={40} className="animate-bounce mb-3" />
             <p className="font-extrabold text-lg">Loading active services from Portainer...</p>
-          </div>
-        ) : containers.length === 0 ? (
-          <div className="p-8 border-4 border-black rounded-2xl bg-[#f472b6] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-center">
-            <h2 className="font-black text-xl mb-2">Tidak Ada Service Aktif</h2>
-            <p className="font-semibold text-sm">Pastikan kontainer di Portainer sedang berjalan.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
