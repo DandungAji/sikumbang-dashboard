@@ -4,16 +4,15 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-# Menggunakan --skipLibCheck / pass build
-RUN npm run build || npx vite build
+RUN npm run build
 
 # Step 2: Serve via Nginx + Python Telemetry
 FROM nginx:alpine
 
-# Install Python & Pip
+# Install Python, Pip, dan Virtual Environment
 RUN apk add --no-cache python3 py3-pip
 
-# Install backend dependencies
+# Install backend dependencies untuk telemetry
 RUN python3 -m venv /venv && \
     /venv/bin/pip install --no-cache-dir flask flask-cors psutil
 

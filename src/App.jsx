@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Cpu,
   HardDrive,
-  Ram
+  MemoryStick 
 } from 'lucide-react';
 
 const CARD_BG_COLORS = [
@@ -196,22 +196,22 @@ export default function App() {
           </div>
 
           {/* RAM Widget */}
-          <div className="bg-white border-3 border-black p-4 rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="flex items-center gap-2 font-black text-sm uppercase">
-                <Ram size={18} /> RAM
-              </span>
-              <span className="font-extrabold text-xs px-2 py-0.5 bg-lime-200 border border-black rounded-md">
-                {sysStats.ramUsedGb} / {sysStats.ramTotalGb} GB
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 h-4 rounded-lg border-2 border-black overflow-hidden">
-              <div 
-                className="bg-[#bef264] h-full transition-all duration-500" 
-                style={{ width: `${ramPercent}%` }}
-              />
-            </div>
-          </div>
+<div className="bg-white border-3 border-black p-4 rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
+  <div className="flex items-center justify-between mb-2">
+    <span className="flex items-center gap-2 font-black text-sm uppercase">
+      <MemoryStick size={18} /> RAM
+    </span>
+    <span className="font-extrabold text-xs px-2 py-0.5 bg-lime-200 border border-black rounded-md">
+      {sysStats.ramUsedGb} / {sysStats.ramTotalGb} GB
+    </span>
+  </div>
+  <div className="w-full bg-gray-200 h-4 rounded-lg border-2 border-black overflow-hidden">
+    <div 
+      className="bg-[#bef264] h-full transition-all duration-500" 
+      style={{ width: `${ramPercent}%` }}
+    />
+  </div>
+</div>
 
           {/* DISK Widget */}
           <div className="bg-white border-3 border-black p-4 rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
