@@ -9,7 +9,6 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-// Pemetaan warna Neobrutalism acak/varian untuk kartu kontainer
 const CARD_BG_COLORS = [
   'bg-[#7dd3fc]', // Soft Blue
   'bg-[#bef264]', // Soft Lime Green
@@ -19,6 +18,40 @@ const CARD_BG_COLORS = [
   'bg-[#fb923c]', // Soft Orange
 ];
 
+// Mapping URL dan nama bersih sesuai dokumentasi Homelab
+const SERVICE_CONFIG = {
+  'sikumbang-dashboard': {
+    name: 'Sikumbang Dashboard',
+    url: 'https://sikumbang.web.id',
+    description: 'Custom Soft-Brutalism Landing Page'
+  },
+  'immich_server': {
+    name: 'Immich',
+    url: 'https://immich.sikumbang.web.id',
+    description: 'Google Photos Alternative'
+  },
+  'vikunja': {
+    name: 'Vikunja',
+    url: 'https://tasks.sikumbang.web.id',
+    description: 'Task Management & Kanban Board'
+  },
+  'speedtest-tracker': {
+    name: 'Speedtest Tracker',
+    url: 'http://100.87.126.58:8081',
+    description: 'Network Performance Monitor'
+  },
+  'flatnotes': {
+    name: 'Flatnotes',
+    url: 'http://100.87.126.58:8080',
+    description: 'Server Docs & Markdown Notes'
+  },
+  'portainer': {
+    name: 'Portainer CE',
+    url: 'https://100.87.126.58:9443',
+    description: 'Docker Container Management'
+  }
+};
+
 export default function App() {
   const [containers, setContainers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,41 +60,46 @@ export default function App() {
     setLoading(true);
     fetch('/api/portainer/')
       .then((res) => {
-        if (!res.ok) throw new Error('Network response resulted in an error');
+        if (!res.ok) throw new Error('Failed to fetch from Portainer API');
         return res.json();
       })
       .then((data) => {
-  const formatted = data
-    // 1. FILTER: Cuma ambil kontainer yang punya PublicPort & running
-    .filter((item) => {
-      const hasPublicPort = item.Ports && item.Ports.some((p) => p.PublicPort);
-      return hasPublicPort;
-    })
-    // 2. MAP: Format data kartu
-    .map((item, index) => {
-      const name = item.Names[0] ? item.Names[0].replace('/', '') : 'unnamed';
-      
-      // Ambil port publik pertama
-      const portInfo = item.Ports.find((p) => p.PublicPort);
-      const publicPort = portInfo ? portInfo.PublicPort : null;
-      
-      // Tentukan URL web service
-      const url = publicPort ? `http://${window.location.hostname}:${publicPort}` : null;
+        const formatted = data
+          // 1. FILTER: Blacklist kontainer pendukung/database internal
+          .filter((item) => {
+            const rawName = item.Names[0] ? item.Names[0].replace('/', '') : '';
+            const isInternal = 
+              rawName.includes('postgres') || 
+              rawName.includes('redis') || 
+              rawName.includes('machine_learning') ||
+              rawName.includes('sentinel');
+            return !isInternal;
+          })
+          // 2. MAP: Cocokkan nama & URL berdasarkan SERVICE_CONFIG
+          .map((item, index) => {
+            const rawName = item.Names[0] ? item.Names[0].replace('/', '') : 'unnamed';
+            
+            // Cari konfigurasi kustom, jika tidak ada buatkan fallback rapi
+            const matchedConfig = SERVICE_CONFIG[rawName] || {
+              name: rawName.toUpperCase(),
+              url: null,
+              description: item.Image
+            };
 
-      return {
-        id: item.Id,
-        name: name,
-        status: item.State,
-        image: item.Image,
-        port: publicPort,
-        url: url,
-        bgColor: CARD_BG_COLORS[index % CARD_BG_COLORS.length]
-      };
-    });
+            return {
+              id: item.Id,
+              rawName: rawName,
+              displayName: matchedConfig.name,
+              description: matchedConfig.description,
+              url: matchedConfig.url,
+              status: item.State,
+              bgColor: CARD_BG_COLORS[index % CARD_BG_COLORS.length]
+            };
+          });
 
-  setContainers(formatted);
-  setLoading(false);
-})
+        setContainers(formatted);
+        setLoading(false);
+      })
       .catch((err) => {
         console.error('Gagal mengambil data kontainer:', err);
         setLoading(false);
@@ -92,7 +130,7 @@ export default function App() {
           <button
             onClick={fetchContainers}
             disabled={loading}
-            className="flex items-center gap-2 self-start sm:self-auto px-4 py-2 bg-[#fde047] hover:bg-[#facc15] border-2 border-black rounded-xl font-bold text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
+            className="flex items-center gap-2 self-start sm:self-auto px-4 py-2 bg-[#fde047] hover:bg-[#facc15] border-2 border-black rounded-xl font-bold text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             Refresh Services
@@ -103,12 +141,12 @@ export default function App() {
         {loading ? (
           <div className="flex flex-col items-center justify-center p-12 border-4 border-black rounded-2xl bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
             <Activity size={40} className="animate-bounce mb-3" />
-            <p className="font-extrabold text-lg">Loading active containers from Portainer...</p>
+            <p className="font-extrabold text-lg">Loading active services from Portainer...</p>
           </div>
         ) : containers.length === 0 ? (
           <div className="p-8 border-4 border-black rounded-2xl bg-[#f472b6] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-center">
-            <h2 className="font-black text-xl mb-2">Tidak Ada Kontainer Ditemukan</h2>
-            <p className="font-semibold text-sm">Pastikan Portainer running dan API Key di nginx.conf sudah benar.</p>
+            <h2 className="font-black text-xl mb-2">Tidak Ada Service Aktif</h2>
+            <p className="font-semibold text-sm">Pastikan kontainer di Portainer sedang berjalan.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -135,11 +173,11 @@ export default function App() {
                     </span>
                   </div>
 
-                  <h2 className="font-black text-xl leading-snug tracking-tight uppercase truncate mb-1" title={container.name}>
-                    {container.name}
+                  <h2 className="font-black text-xl leading-snug tracking-tight mb-1" title={container.displayName}>
+                    {container.displayName}
                   </h2>
-                  <p className="text-xs font-bold text-gray-800 break-all line-clamp-1 mb-4 opacity-80" title={container.image}>
-                    {container.image}
+                  <p className="text-xs font-bold text-gray-800 break-words line-clamp-2 mb-4 opacity-80">
+                    {container.description}
                   </p>
                 </div>
 
